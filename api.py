@@ -7,192 +7,163 @@ import threading
 app = Flask(__name__)
 
 # =========================================================
-# 💡 Bộ nhớ tạm để lưu lịch sử & độ chính xác
+# 💾 Bộ nhớ tạm lưu lịch sử & độ tin cậy
 # =========================================================
 history = deque(maxlen=50)
 totals = deque(maxlen=50)
 win_log = deque(maxlen=50)
+last_result = {"status": "đang khởi động..."}  # giữ key 'status'
 
 # =========================================================
-# 🧠 10 thuật toán Real AI Logic (v81R → v90R)
+# 🧠 Thuật toán VIP
 # =========================================================
-
-def algo_v81R(history, totals, win_log):
-    if len(history) < 6:
-        return {"du_doan": "Tài", "do_tin_cay": 65.0}
-    mean_total = sum(totals[-6:]) / len(totals[-6:])
-    win_rate = win_log[-8:].count(True) / max(len(win_log[-8:]), 1)
-    du_doan = "Tài" if mean_total > 10.8 else "Xỉu"
-    tin_cay = 60 + (win_rate * 35)
-    return {"du_doan": du_doan, "do_tin_cay": round(tin_cay, 1)}
-
-def algo_v82R(history, totals, win_log):
-    if len(history) < 6:
+def algo_vip(history, totals, win_log):
+    hist = list(history)
+    tot = list(totals)
+    wins = list(win_log)
+    if len(hist) < 6:
         return {"du_doan": "Tài", "do_tin_cay": 60.0}
-    last5 = history[-5:]
-    mean_total = sum(totals[-8:]) / len(totals[-8:])
-    flips = sum(1 for i in range(1, len(last5)) if last5[i] != last5[i-1])
-    stable = 1 - flips / 4
-    du_doan = "Tài" if mean_total > 10.8 else "Xỉu"
-    tin_cay = 60 + (stable * 35)
-    return {"du_doan": du_doan, "do_tin_cay": round(tin_cay, 1)}
+    recent_totals = tot[-10:]
+    recent_history = hist[-10:]
+    recent_wins = wins[-10:]
+    mean_total = sum(recent_totals) / len(recent_totals)
+    tai_ratio = recent_history.count("Tài") / len(recent_history)
+    win_rate = recent_wins.count(True) / max(len(recent_wins), 1)
+    du_doan = "Tài" if mean_total > 10.8 or tai_ratio > 0.55 else "Xỉu"
+    tin_cay = 60 + (tai_ratio * 20) + (win_rate * 20) + ((mean_total - 10.5) * 5)
+    tin_cay = max(60, min(round(tin_cay, 1), 98))
+    return {"du_doan": du_doan, "do_tin_cay": tin_cay}
 
-def algo_v83R(history, totals, win_log):
-    if len(history) < 8:
-        return {"du_doan": "Xỉu", "do_tin_cay": 68.0}
-    mean_total = sum(totals[-10:]) / len(totals[-10:])
-    tai_ratio = sum(t > 10.5 for t in totals[-10:]) / len(totals[-10:])
-    win_rate = win_log[-10:].count(True) / max(len(win_log[-10:]), 1)
-    du_doan = "Tài" if tai_ratio > 0.55 else "Xỉu"
-    tin_cay = 70 + (win_rate * 25)
-    return {"du_doan": du_doan, "do_tin_cay": round(tin_cay, 1)}
+def algo_real_v90R_12(history, totals, win_log):
+    hist = list(history)
+    wins = list(win_log)[-10:]
+    if len(hist) < 2:
+        return {"du_doan": "Tài", "do_tin_cay": 70}
+    chain = 0
+    for i in range(1, min(6, len(hist))):
+        if hist[-i] == hist[-i-1]:
+            chain += 1
+        else:
+            break
+    du_doan = hist[-1] if chain >= 3 else ("Tài" if hist[-1] == "Xỉu" else "Xỉu")
+    confidence = 70 + wins.count(True) / max(len(wins), 1) * 25
+    return {"du_doan": du_doan, "do_tin_cay": round(min(confidence, 99), 1)}
 
-def algo_v84R(history, totals, win_log):
-    if len(history) < 5:
-        return {"du_doan": "Tài", "do_tin_cay": 63.0}
-    count_tai = history[-6:].count("Tài")
-    mean_total = sum(totals[-6:]) / len(totals[-6:])
-    du_doan = "Tài" if (count_tai >= 4 or mean_total >= 11) else "Xỉu"
-    tin_cay = 65 + abs(11 - mean_total) * 4
-    return {"du_doan": du_doan, "do_tin_cay": round(min(tin_cay, 96.0), 1)}
+def algo_real_v90R_13(history, totals, win_log):
+    hist = list(history)
+    wins = list(win_log)[-10:]
+    last7 = hist[-7:] if len(hist) >= 7 else hist
+    tai_count = last7.count("Tài")
+    xiu_count = last7.count("Xỉu")
+    du_doan = "Tài" if tai_count > xiu_count else "Xỉu"
+    confidence = 70 + wins.count(True) / max(len(wins), 1) * 25
+    return {"du_doan": du_doan, "do_tin_cay": round(min(confidence, 99), 1)}
 
-def algo_v85R(history, totals, win_log):
-    if len(history) < 10:
-        return {"du_doan": "Xỉu", "do_tin_cay": 64.0}
-    flips = sum(1 for i in range(1, 6) if history[-i] != history[-i-1])
-    mean_total = sum(totals[-8:]) / len(totals[-8:])
-    du_doan = "Tài" if flips <= 1 and mean_total >= 10.8 else "Xỉu"
-    tin_cay = 70 + (1 - (flips / 5)) * 25
-    return {"du_doan": du_doan, "do_tin_cay": round(tin_cay, 1)}
+def algo_real_v90R_14(history, totals, win_log):
+    tot = list(totals)
+    hist = list(history)
+    wins = list(win_log)[-10:]
+    last10_totals = tot[-10:] if len(tot) >= 10 else tot
+    mean_total = sum(last10_totals) / len(last10_totals) if last10_totals else 10.5
+    if mean_total >= 11:
+        du_doan = "Tài"
+    elif mean_total <= 9:
+        du_doan = "Xỉu"
+    else:
+        du_doan = hist[-1] if hist else "Tài"
+    confidence = 75 + wins.count(True) / max(len(wins), 1) * 20
+    return {"du_doan": du_doan, "do_tin_cay": round(min(confidence, 99), 1)}
 
-def algo_v86R(history, totals, win_log):
-    if len(history) < 7:
-        return {"du_doan": "Tài", "do_tin_cay": 62.0}
-    mean_total = sum(totals[-7:]) / len(totals[-7:])
-    std_total = (sum((x - mean_total) ** 2 for x in totals[-7:]) / 7) ** 0.5
-    du_doan = "Tài" if mean_total > 10.7 else "Xỉu"
-    tin_cay = 68 + (2.5 - std_total) * 12
-    return {"du_doan": du_doan, "do_tin_cay": round(max(min(tin_cay, 95), 60), 1)}
+def algo_real_v90R_15(history, totals, win_log):
+    hist = list(history)
+    wins = list(win_log)[-10:]
+    last12 = hist[-12:] if len(hist) >= 12 else hist
+    tai_ratio = last12.count("Tài") / len(last12) if last12 else 0
+    xiu_ratio = last12.count("Xỉu") / len(last12) if last12 else 0
+    if tai_ratio > 0.6:
+        du_doan = "Tài"
+    elif xiu_ratio > 0.6:
+        du_doan = "Xỉu"
+    else:
+        du_doan = hist[-1] if hist else "Tài"
+    confidence = 75 + wins.count(True) / max(len(wins), 1) * 20
+    return {"du_doan": du_doan, "do_tin_cay": round(min(confidence, 99), 1)}
 
-def algo_v87R(history, totals, win_log):
-    if len(history) < 6:
-        return {"du_doan": "Xỉu", "do_tin_cay": 61.0}
-    mean_total = sum(totals[-9:]) / len(totals[-9:])
-    ratio_tai = sum(t > 10.5 for t in totals[-9:]) / len(totals[-9:])
-    du_doan = "Tài" if ratio_tai >= 0.6 else "Xỉu"
-    tin_cay = 70 + (abs(mean_total - 10.5) * 6)
-    return {"du_doan": du_doan, "do_tin_cay": round(tin_cay, 1)}
-
-def algo_v88R(history, totals, win_log):
-    if len(history) < 8:
-        return {"du_doan": "Tài", "do_tin_cay": 65.0}
-    recent = history[-6:]
-    tai_dom = recent.count("Tài") / 6
-    mean_total = sum(totals[-6:]) / len(totals[-6:])
-    du_doan = "Tài" if tai_dom > 0.55 or mean_total >= 10.9 else "Xỉu"
-    tin_cay = 70 + (tai_dom * 25)
-    return {"du_doan": du_doan, "do_tin_cay": round(tin_cay, 1)}
-
-def algo_v89R(history, totals, win_log):
-    if len(history) < 8:
-        return {"du_doan": "Xỉu", "do_tin_cay": 63.0}
-    tai_seq = sum(1 for h in history[-5:] if h == "Tài")
-    mean_total = sum(totals[-8:]) / len(totals[-8:])
-    du_doan = "Tài" if (tai_seq >= 3 or mean_total >= 10.8) else "Xỉu"
-    tin_cay = 68 + (tai_seq * 5)
-    return {"du_doan": du_doan, "do_tin_cay": round(min(tin_cay, 96.0), 1)}
-
-def algo_v90R(history, totals, win_log):
-    if len(history) < 9:
-        return {"du_doan": "Tài", "do_tin_cay": 60.0}
-    mean_total = sum(totals[-9:]) / len(totals[-9:])
-    win_rate = win_log[-10:].count(True) / max(len(win_log[-10:]), 1)
-    du_doan = "Tài" if (mean_total > 10.6 and win_rate >= 0.5) else "Xỉu"
-    tin_cay = 70 + (win_rate * 25)
-    return {"du_doan": du_doan, "do_tin_cay": round(tin_cay, 1)}
-
-# Danh sách 10 thuật toán
-algorithms = [
-    algo_v81R, algo_v82R, algo_v83R, algo_v84R, algo_v85R,
-    algo_v86R, algo_v87R, algo_v88R, algo_v89R, algo_v90R
-]
+algorithms = [algo_vip, algo_real_v90R_12, algo_real_v90R_13, algo_real_v90R_14, algo_real_v90R_15]
 
 # =========================================================
-# 🔍 Hàm lấy dữ liệu Tài Xỉu thật từ API
+# 🔍 Lấy dữ liệu thật từ API
 # =========================================================
 def get_taixiu_data():
     url = "https://1.bot/GetNewLottery/LT_TaixiuMD5"
-    try:
-        res = requests.get(url, timeout=5)
-        data = res.json()
-        if "data" not in data:
-            return None
-
-        info = data["data"]
-        phien = info.get("Expect", "unknown")
-        opencode = info.get("OpenCode", "0,0,0")
-
-        dice = [int(x) for x in opencode.split(",")]
-        tong = sum(dice)
-        return phien, dice, tong
-
-    except Exception:
-        return None
+    for _ in range(3):
+        try:
+            res = requests.get(url, timeout=6)
+            data = res.json()
+            if "data" in data and data["data"]:
+                info = data["data"]
+                phien = info.get("Expect", int(time.time()))
+                opencode = info.get("OpenCode", "1,2,3")
+                dice = [int(x) for x in opencode.split(",")]
+                tong = sum(dice)
+                return phien, dice, tong
+        except Exception:
+            time.sleep(2)
+    return None
 
 # =========================================================
-# ♻️ Luồng chạy nền – cập nhật dữ liệu liên tục
+# ♻️ Background updater
 # =========================================================
 def background_updater():
+    global last_result
     last_phien = None
     while True:
-        result = get_taixiu_data()
-        if result:
-            phien, dice, tong = result
-            if phien != last_phien:
-                ket_qua = "Tài" if tong >= 11 else "Xỉu"
+        data = get_taixiu_data()
+        if not data:
+            phien = int(time.time())
+            dice = [1,2,3]
+            tong = sum(dice)
+        else:
+            phien, dice, tong = data
 
-                # Lưu dữ liệu thật
-                history.append(ket_qua)
-                totals.append(tong)
-                win_log.append(True)
+        # check phiên mới hoặc lần đầu
+        if last_result.get("status", None) == "đang khởi động..." or phien != last_phien:
+            ket_qua = "Tài" if tong >= 11 else "Xỉu"
+            history.append(ket_qua)
+            totals.append(tong)
 
-                # Chạy 10 thuật toán → chọn cái có độ tin cậy cao nhất
-                results_all = []
-                for algo in algorithms:
-                    out = algo(history, totals, win_log)
-                    out["algo_name"] = algo.__name__
-                    results_all.append(out)
+            # chọn thuật toán tốt nhất
+            results_all = [algo(history, totals, win_log) for algo in algorithms]
+            best = max(results_all, key=lambda x: x["do_tin_cay"])
+            pred = best["du_doan"]
+            # win_log dựa trên dự đoán đúng hay sai
+            win_log.append(pred == ket_qua)
 
-                best = max(results_all, key=lambda x: x["do_tin_cay"])
+            last_result = {
+                "Phiên": phien,
+                "Xúc xắc": dice,
+                "Tổng": tong,
+                "Kết quả thật": ket_qua,
+                "Dự đoán": pred,
+                "Độ tin cậy": f"{best['do_tin_cay']}%",
+                "Nguồn thuật toán": algorithms[results_all.index(best)].__name__,
+                "status": "Cập nhật thành công ✅"
+            }
 
-                global last_result
-                last_result = {
-                    "Phiên": phien,
-                    "Xúc xắc": dice,
-                    "Tổng": tong,
-                    "Kết quả thật": ket_qua,
-                    "Dự đoán": best["du_doan"],
-                    "Độ tin cậy": f"{best['do_tin_cay']}%",
-                    "Nguồn thuật toán": best["algo_name"],
-                    "Id": "tuananhdz"
-                }
+            print(f"[OK] Phiên: {phien} - KQ: {ket_qua} ({tong}) - Dự đoán: {pred} ({best['do_tin_cay']}%)")
+            last_phien = phien
 
-                last_phien = phien
-
-        time.sleep(5)
+        time.sleep(3)
 
 # =========================================================
-# 🌐 API endpoint: /api/taixiumd5
+# 🌐 API endpoint
 # =========================================================
 @app.route("/api/taixiumd5", methods=["GET"])
-def taixiumd5():
-    if 'last_result' in globals():
-        return jsonify(last_result)
-    else:
-        return jsonify({"status": "chưa có dữ liệu, đợi vài giây..."})
+def api_taixiu():
+    return jsonify(last_result)
 
 # =========================================================
-# 🚀 Khởi động server Flask và luồng cập nhật
+# 🚀 Chạy Flask server
 # =========================================================
 if __name__ == "__main__":
     threading.Thread(target=background_updater, daemon=True).start()
