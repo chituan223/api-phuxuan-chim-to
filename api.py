@@ -114,9 +114,9 @@ def background_updater():
         time.sleep(5)
 
 # =========================================================
-# 🌐 API endpoint thật: /taixiumd5
+# 🌐 API endpoint thật: /api/taixiumd5
 # =========================================================
-@app.route("api/taixiumd5", methods=["GET"])
+@app.route("/api/taixiumd5", methods=["GET"])
 def taixiumd5():
     if 'last_result' in globals():
         return jsonify(last_result)
